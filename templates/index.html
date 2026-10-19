@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Solana Multi-Wallet Execution Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-slate-950 text-slate-100 min-h-screen p-4 md:p-8 font-sans">
+    <div class="max-w-4xl mx-auto space-y-6">
+      <!-- HEADER -->
+      <div
+        class="flex justify-between items-center bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl"
+      >
+        <div>
+          <h1
+            class="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500"
+          >
+            SOLANA MULTI-WALLET BOT
+          </h1>
+          <p class="text-xs text-slate-400 mt-1">
+            Ejecución simultánea ultra-rápida vía Jupiter DEX
+          </p>
+        </div>
+        <div class="text-right">
+          <span
+            class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+          >
+            🟢 Wallets cargadas: {{ wallet_count }}
+          </span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- PANEL DE CONTROL -->
+        <div
+          class="md:col-span-2 bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl space-y-5"
+        >
+          <div>
+            <label
+              class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2"
+            >
+              Token Mint Address (Contrato de la Memecoin)
+            </label>
+            <input
+              type="text"
+              id="token_mint"
+              class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-500 font-mono text-purple-300"
+              placeholder="Ej: DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"
+            />
+          </div>
+
+          <div>
+            <label
+              class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2"
+            >
+              Monto SOL por cada Wallet
+            </label>
+            <input
+              type="number"
+              id="amount_sol"
+              step="0.01"
+              value="0.05"
+              class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-500 font-mono"
+            />
+          </div>
+
+          <!-- BOTONES DE COMPRA Y VENTA -->
+          <div class="grid grid-cols-2 gap-4 pt-2">
+            <button
+              onclick="triggerAction('buy')"
+              id="btn-buy"
+              class="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold py-4 rounded-xl shadow-lg transition duration-150 flex justify-center items-center gap-2"
+            >
+              <span>🚀 COMPRAR</span>
+              <span class="text-xs opacity-75"
+                >({{ wallet_count }} Wallets)</span
+              >
+            </button>
+
+            <button
+              onclick="triggerAction('sell')"
+              id="btn-sell"
+              class="w-full bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-bold py-4 rounded-xl shadow-lg transition duration-150 flex justify-center items-center gap-2"
+            >
+              <span>💥 VENDER</span>
+              <span class="text-xs opacity-75"
+                >({{ wallet_count }} Wallets)</span
+              >
+            </button>
+          </div>
+        </div>
+
+        <!-- LISTA DE WALLETS -->
+        <div
+          class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl flex flex-col"
+        >
+          <h3
+            class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3"
+          >
+            Wallets Vinculadas
+          </h3>
+          <div
+            class="flex-1 overflow-y-auto max-h-64 space-y-2 pr-1 custom-scrollbar"
+          >
+            {% for w in wallets %}
+            <div
+              class="text-xs font-mono bg-slate-950 border border-slate-800/80 p-2.5 rounded-lg text-slate-300 truncate"
+            >
+              {{ loop.index }}. {{ w }}
+            </div>
+            {% else %}
+            <p class="text-xs text-rose-400">
+              Sin wallets. Revisa wallets.json
+            </p>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- CONSOLA DE REGISTROS / RESULTADOS -->
+      <div
+        class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl"
+      >
+        <h3
+          class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex justify-between items-center"
+        >
+          <span>Terminal de Operaciones</span>
+          <span
+            id="status-spinner"
+            class="hidden text-purple-400 animate-pulse text-xs"
+            >Ejecutando ordenes en paralelo...</span
+          >
+        </h3>
+        <div
+          id="logs"
+          class="bg-slate-950 border border-slate-800/80 rounded-xl p-4 font-mono text-xs text-slate-300 h-48 overflow-y-auto space-y-2"
+        >
+          <div class="text-slate-600">
+            > Sistema listo. Ingresa un Token Mint y presiona Comprar o Vender.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      async function triggerAction(action) {
+        const tokenMint = document.getElementById("token_mint").value.trim();
+        const amountSol = parseFloat(
+          document.getElementById("amount_sol").value,
+        );
+        const logsDiv = document.getElementById("logs");
+        const spinner = document.getElementById("status-spinner");
+
+        if (!tokenMint) {
+          alert("Debes ingresar el mint address del token.");
+          return;
+        }
+
+        // UI Feedback
+        spinner.classList.remove("hidden");
+        const time = new Date().toLocaleTimeString();
+        logsDiv.innerHTML += `<div class="text-purple-400">> [${time}] Enviando orden de ${action.toUpperCase()} por ${amountSol} SOL a todas las wallets...</div>`;
+        logsDiv.scrollTop = logsDiv.scrollHeight;
+
+        try {
+          const response = await fetch("/api/trade", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              token_mint: tokenMint,
+              amount_sol: amountSol,
+              action: action,
+            }),
+          });
+
+          const data = await response.json();
+          spinner.classList.add("hidden");
+
+          if (data.status === "completed") {
+            data.results.forEach((res) => {
+              if (res.status === "SUCCESS") {
+                logsDiv.innerHTML += `<div class="text-emerald-400 font-semibold">> [ÉXITO] Wallet ${res.wallet} | TX: <a href="https://solscan.io/tx/${res.tx}" target="_blank" class="underline text-purple-400">${res.tx.substring(0, 8)}...</a></div>`;
+              } else {
+                logsDiv.innerHTML += `<div class="text-rose-400">> [ERROR] Wallet ${res.wallet}: ${res.error}</div>`;
+              }
+            });
+          } else {
+            logsDiv.innerHTML += `<div class="text-rose-500">> [FALLO CRÍTICO]: ${data.message}</div>`;
+          }
+        } catch (err) {
+          spinner.classList.add("hidden");
+          logsDiv.innerHTML += `<div class="text-rose-500">> [ERROR RED]: No se pudo conectar con el servidor backend.</div>`;
+        }
+
+        logsDiv.scrollTop = logsDiv.scrollHeight;
+      }
+    </script>
+  </body>
+</html>
